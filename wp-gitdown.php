@@ -11,22 +11,41 @@
  */
 
 class WordPress_Gitdown {
-
+  /**
+   * This plugin is required for this to run
+   */
   static $required = 'wp-markdown';
-  
+
   /**
    * Holds the values to be used in the fields callbacks
    */
   private $options;
 
+
+  /**
+   * __construct function.
+   *
+   * @access public
+   * @return void
+   */
   public function __construct() {
     register_activation_hook(__FILE__,array(__CLASS__, 'install' ));
-    add_action( 'admin_menu', array( $this, 'add_plugin_page' ) );
-    add_action( 'admin_init', array( $this, 'page_init' ) );
+    require_once(dirname(__FILE__) . '/lib/Git.php');
+    add_action( 'admin_menu', array( $this, 'gitdown_page' ) );
+    add_action( 'admin_init', array( $this, 'gitdown_page_init' ) );
   }
 
+  /**
+   * install function.
+   * Runs when plugin is activated
+   *
+   * @access public
+   * @static
+   * @return void
+   */
   static function install() {
     self::dependentplugin_activate();
+    // @todo: plugin to add notification to add git creds
   }
 
   /**
@@ -43,81 +62,78 @@ class WordPress_Gitdown {
       // deactivate dependent plugin
       deactivate_plugins( __FILE__);
 
-      // throw new Exception('Requires another plugin!');
-      // exit();
+      // throw new Exception and exit
       // @todo: Write better exit message
-      exit ('Requires WP-Markdown.');
+      exit ('<b>Requires WP-Markdown.</b>');
     }
   }
-  
+
   /**
    * Add options page
    */
-  public function add_plugin_page() {
+  public function gitdown_page() {
     // This page will be under "Settings"
     add_options_page(
-        'Settings Admin', 
-        'My Settings', 
-        'manage_options', 
-        'my-setting-admin', 
-        array( $this, 'create_admin_page' )
+      'WP Gitdown',
+      'WP Gitdown Settings',
+      'manage_options',
+      'wp-gitdown',
+      array( $this, 'gitdown_settings_page' )
     );
   }
 
   /**
    * Options page callback
    */
-  public function create_admin_page() {
+  public function gitdown_settings_page() {
     // Set class property
-    $this->options = get_option( 'my_option_name' );
-    ?>
+    $this->options = get_option('gitdown_settings'); ?>
     <div class="wrap">
-        <?php screen_icon(); ?>
-        <h2>My Settings</h2>           
-        <form method="post" action="options.php">
-        <?php
-            // This prints out all hidden setting fields
-            settings_fields( 'my_option_group' );   
-            do_settings_sections( 'my-setting-admin' );
-            submit_button(); 
-        ?>
-        </form>
-    </div>
+    <h2>My Settings</h2>
+    <form method="post" action="options.php">
+    <?php
+    // This prints out all hidden setting fields
+    settings_fields( 'gitdown_settings' );
+    do_settings_sections( 'gitdown_settings_admin' );
+    // @todo: write Export All button and function
+    submit_button();
+?>
+    </form>
     <?php
   }
 
   /**
    * Register and add settings
    */
-  public function page_init() {        
+  public function gitdown_page_init() {
     register_setting(
-        'my_option_group', // Option group
-        'my_option_name', // Option name
-        array( $this, 'sanitize' ) // Sanitize
+      'gitdown_settings', // Option group
+      'gitdown_settings', // Option name
+      array( $this, 'sanitize' ) // Sanitize
     );
 
     add_settings_section(
-        'setting_section_id', // ID
-        'My Custom Settings', // Title
-        array( $this, 'print_section_info' ), // Callback
-        'my-setting-admin' // Page
-    );  
+      'gitdown_settings_gitcreds', // ID
+      'GitHub Credentials', // Title
+      array( $this, 'gitcreds_section' ), // Callback
+      'gitdown_settings_admin' // Page
+    );
 
     add_settings_field(
-        'id_number', // ID
-        'ID Number', // Title 
-        array( $this, 'id_number_callback' ), // Callback
-        'my-setting-admin', // Page
-        'setting_section_id' // Section           
-    );      
+      'github_username', // ID
+      'GitHub Username', // Title
+      array( $this, 'github_username' ), // Callback
+      'gitdown_settings_admin', // Page
+      'gitdown_settings_gitcreds' // Section
+    );
 
     add_settings_field(
-        'title', 
-        'Title', 
-        array( $this, 'title_callback' ), 
-        'my-setting-admin', 
-        'setting_section_id'
-    );      
+      'github_password', // ID
+      'GitHub Password', // Title
+      array( $this, 'github_password' ), // Callback
+      'gitdown_settings_admin', // Page
+      'gitdown_settings_gitcreds' // Section
+    );
   }
 
   /**
@@ -128,41 +144,49 @@ class WordPress_Gitdown {
   public function sanitize( $input ) {
     $new_input = array();
     if( isset( $input['id_number'] ) )
-        $new_input['id_number'] = absint( $input['id_number'] );
+      $new_input['id_number'] = absint( $input['id_number'] );
 
     if( isset( $input['title'] ) )
-        $new_input['title'] = sanitize_text_field( $input['title'] );
+      $new_input['title'] = sanitize_text_field( $input['title'] );
 
     return $new_input;
   }
 
-  /** 
+  /**
    * Print the Section text
+   * @todo Write section text
    */
-  public function print_section_info() {
-    print 'Enter your settings below:';
+  public function gitcreds_section() {
+
   }
 
-  /** 
-   * Get the settings option array and print one of its values
+  /**
+   * github_username function.
+   *
+   * @access public
+   * @return void
    */
-  public function id_number_callback() {
+  public function github_username() {
     printf(
-        '<input type="text" id="id_number" name="my_option_name[id_number]" value="%s" />',
-        isset( $this->options['id_number'] ) ? esc_attr( $this->options['id_number']) : ''
+      '<input type="text" id="github_username" name="my_option_name[github_username]" value="%s" />',
+      isset( $this->options['github_username'] ) ? esc_attr( $this->options['github_username']) : ''
     );
   }
 
-  /** 
-   * Get the settings option array and print one of its values
+
+  /**
+   * github_password function.
+   *
+   * @access public
+   * @return void
+   * @todo Hash password before putting it into the database
    */
-  public function title_callback() {
+  public function github_password() {
     printf(
-        '<input type="text" id="title" name="my_option_name[title]" value="%s" />',
-        isset( $this->options['title'] ) ? esc_attr( $this->options['title']) : ''
+      '<input type="password" id="github_password" name="my_option_name[github_password]" value="%s" />',
+      isset( $this->options['github_password'] ) ? esc_attr( $this->options['github_password']) : ''
     );
   }
 }
 
-require_once('lib/Git.php');
 $wordpress_gitdown = new WordPress_Gitdown();
