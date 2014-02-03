@@ -27,7 +27,6 @@ class WordPress_Gitdown {
    */
   static $repo_dir = 'gitdown';
   
-  
   /**
    * get_repo_path function.
    * 
@@ -38,7 +37,7 @@ class WordPress_Gitdown {
   static function get_repo_path() {
     $upload_dir_array = wp_upload_dir();
     $upload_dir_basedir = $upload_dir_array['basedir'];
-    $repo_dir = $upload_dir_basedir . '/' . self::$repo_dir;
+    $repo_path = $upload_dir_basedir . '/' . self::$repo_dir;
     return $repo_path;
   }
 
@@ -81,8 +80,12 @@ class WordPress_Gitdown {
     $repo_path = self::get_repo_path();
     // We're going to assume if repo_path exists, we created it
     if( !is_dir($repo_path) ) {
-      // Check if it's writable for better error reporting
-      if (wp_is_writable($upload_dir_basedir)) {
+      // Check if we can write a directory for better error reporting
+      $upload_dir_basedir = dirname($repo_path);
+      if (!wp_is_writable($upload_dir_basedir)) {
+        // Provide an error if the directory isn't writable
+        exit ('The directory ' . $repo_path . ' is not writable. Check your permissions.');
+      } else {
         include_once( ABSPATH . 'wp-includes/functions.php' );
         // Create the repo_dir
         $mkdir = wp_mkdir_p( $repo_path );
@@ -93,10 +96,7 @@ class WordPress_Gitdown {
           // and provide an error
           exit ('<b>Failed to create repo dir: </b>' . $repo_path);
         }
-      } else {
-        // Provide an error if the directory isn't writable
-        exit ('The directory ' . $repo_path . ' is not writable. Check your permissions.');
-      }
+    }
       // Initiate the repo
       $repo = Git::create($repo_path);
     }
@@ -189,6 +189,13 @@ class WordPress_Gitdown {
       'gitdown_settings_admin', // Page
       'gitdown_settings_gitcreds' // Section
     );
+    add_settings_field(
+      'github_repo', // ID
+      'GitHub Repo Address', // Title
+      array( $this, 'github_repo' ), // Callback
+      'gitdown_settings_admin', // Page
+      'gitdown_settings_gitcreds' // Section
+    );
   }
 
   /**
@@ -215,7 +222,11 @@ class WordPress_Gitdown {
    * @todo Write section text
    */
   public function gitcreds_section() {
-    print('Insert help text.');
+    print('Insert help text.<br />');
+    $repo_path = self::get_repo_path();
+    $git = Git::open($repo_path);
+    $git->clean();
+    echo $git->status(true);
   }
 
   /**
@@ -243,8 +254,23 @@ class WordPress_Gitdown {
       isset( $this->options['github_password'] ) ? esc_attr( $this->options['github_password']) : ''
     );
   }
+  
+  /**
+   * github_repo function.
+   * 
+   * @access public
+   * @return void
+   */
+  public function github_repo() {
+    printf(
+      '<input type="text" id="github_repo" name="gitdown_settings[github_repo]" value="%s" />',
+      isset( $this->options['github_repo'] ) ? esc_attr( $this->options['github_repo']) : ''
+    );
+  }
 
   public function export_all_button() {
+    // @todo make only this fire when clicked, instead of firing when DB updated
+    // may need to unhook the action
     echo '<input type="submit" id="export_all" name="export_all" class="button button-secondary" value="Export All Posts" />';
   }
   
@@ -257,20 +283,48 @@ class WordPress_Gitdown {
   public function export_all() {
     if (isset($_POST['export_all'])) {
       // initialize the git object
-      // $git = new Git::open($repo_dir);
-      
-      // check if defined directory is a Git repo
+      $repo_path = self::get_repo_path();
+      $git = Git::open($repo_path);
+      $git->clean();
       
       // get all posts
-      
-      // foreach here
-        // run them through conversion
-        // export them to a file
-      
-      // after exporting, stage everything
-      // commit
+      $query_args = array( 'post_type' => 'post',
+                           'orderby'   => 'post_date'
+                         );
+      $all_posts = get_posts($query_args);
+
+      foreach ( $all_posts as $post ) {
+        
+    		// Convert HTML content to Markdown
+    		$html_content = $post->post_content;
+    		$markdown_content = wpmarkdown_html_to_markdown($html_content);
+    		
+    		// get slug + ID
+    		$slug = $post->post_name;
+    		$post_id = $post->ID;
+    		
+    		// concatenate filename
+    		$filename = $post_id . '-' . $slug . '.md';
+    		
+    		// Export that Markdown to a .md file in $repo_path
+    		// @todo rewrite this file creation function with WP_Filesystem API
+    		file_put_contents($repo_path . '/' . $filename, $markdown_content);
+    		
+    		// Stage new file
+    		$git->add($filename);
+    		
+    		// Commit 
+    		// @todo need to react properly to git Exception where 'who you are' not set
+    		if ($git->status() !== "# On branch master nothing to commit (working directory clean)") {
+      		$message = 'Result of Export All Posts: exported ' . $post->post_title;
+      		$git->commit($message);	
+    		}
+    	}
+      // Restore original Post Data
+      wp_reset_postdata();
       
       // push to origin:master
+      // need to check if gitcreds set properly for this to run
     }
   }
 }
