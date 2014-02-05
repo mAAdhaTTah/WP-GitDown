@@ -8,6 +8,7 @@
 	Author URI:
 	Text Domain:
 	Domain Path:
+	@todo write better code documentation
  */
 
 class WordPress_Gitdown {
@@ -20,7 +21,6 @@ class WordPress_Gitdown {
   /**
    * Version #
    **/
-   
   static $version = '1.0';
   
   /**
@@ -128,6 +128,14 @@ class WordPress_Gitdown {
     }
   }
   
+  
+  /**
+   * display_message function.
+   * 
+   * @access public
+   * @static
+   * @return void
+   */
   static function display_message() {
     if( self::$version != get_option( 'wp-gitdown' ) ) {
       add_option( 'wp-gitdown', self::$version );
@@ -140,6 +148,14 @@ class WordPress_Gitdown {
     }
   }
   
+  
+  /**
+   * uninstall function.
+   * 
+   * @access public
+   * @static
+   * @return void
+   */
   static function uninstall() {
     if( false == delete_option( 'wp-gitdown' ) ) {
 
