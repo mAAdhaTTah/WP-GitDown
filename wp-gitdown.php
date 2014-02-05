@@ -18,6 +18,12 @@ class WordPress_Gitdown {
   static $required = 'wp-markdown';
   
   /**
+   * Version #
+   **/
+   
+  static $version = '1.0';
+  
+  /**
    * Holds the values to be used in the fields callbacks
    */
   private $options;
@@ -49,6 +55,7 @@ class WordPress_Gitdown {
    */
   public function __construct() {
     register_activation_hook(__FILE__,array(__CLASS__, 'install' ));
+    add_action( 'admin_notices', array( __CLASS__, 'display_message' ) ) ;
     require_once(dirname(__FILE__) . '/lib/Git.php');
     add_action( 'admin_menu', array( $this, 'gitdown_page' ) );
     add_action( 'admin_init', array( $this, 'gitdown_page_init' ) );
@@ -65,9 +72,27 @@ class WordPress_Gitdown {
   static function install() {
     self::check_dependentplugin();
     self::initiate_repo();
-    // @todo: plugin to add notification to add git creds
   }
-  
+
+  /**
+   * Check whether WP-Markdown is active
+   *
+   * @access public
+   * @return void
+   */
+  static function check_dependentplugin() {
+    include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
+
+    if ( !is_plugin_active( self::$required . '/' . self::$required . '.php' ) ) {
+
+      // deactivate dependent plugin
+      deactivate_plugins( __FILE__);
+
+      // throw new Exception and exit
+      // @todo: Write better exit message
+      exit ('<b>Requires WP-Markdown.</b>');
+    }
+  }  
   
   /**
    * initiate_repo function.
@@ -101,25 +126,31 @@ class WordPress_Gitdown {
       $repo = Git::create($repo_path);
     }
   }
-
-  /**
-   * Check whether WP-Markdown is active
-   *
-   * @access public
-   * @return void
-   */
-  static function check_dependentplugin() {
-    include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
-
-    if ( !is_plugin_active( self::$required . '/' . self::$required . '.php' ) ) {
-
-      // deactivate dependent plugin
-      deactivate_plugins( __FILE__);
-
-      // throw new Exception and exit
-      // @todo: Write better exit message
-      exit ('<b>Requires WP-Markdown.</b>');
+  
+  static function display_message() {
+    if( self::$version != get_option( 'wp-gitdown' ) ) {
+      add_option( 'wp-gitdown', self::$version );
+      $html = '<div class="updated">';
+  			$html .= '<p>';
+  				$html .= 'Don\'t forget to add you GitHub creds!';
+        $html .= '</p>';
+  		$html .= '</div><!-- /.updated -->';
     }
+
+    echo $html;
+  }
+  
+  static function uninstall() {
+    	if( false == delete_option( 'wp-gitdown' ) ) {
+
+		$html = '<div class="error">';
+			$html .= '<p>';
+			// @todo write better message
+				$html .= 'Try deactivating the plugin again :(';
+			$html .= '</p>';
+		$html .= '</div><!-- /.updated -->';
+
+		echo $html;
   }
 
   /**
