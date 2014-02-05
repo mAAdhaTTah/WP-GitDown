@@ -56,6 +56,7 @@ class WordPress_Gitdown {
   public function __construct() {
     register_activation_hook(__FILE__,array(__CLASS__, 'install' ));
     add_action( 'admin_notices', array( __CLASS__, 'display_message' ) ) ;
+    register_activation_hook(__FILE__,array(__CLASS__, 'uninstall' ));
     require_once(dirname(__FILE__) . '/lib/Git.php');
     add_action( 'admin_menu', array( $this, 'gitdown_page' ) );
     add_action( 'admin_init', array( $this, 'gitdown_page_init' ) );
@@ -132,25 +133,25 @@ class WordPress_Gitdown {
       add_option( 'wp-gitdown', self::$version );
       $html = '<div class="updated">';
   			$html .= '<p>';
-  				$html .= 'Don\'t forget to add you GitHub creds!';
+  				$html .= 'Don\'t forget to add your GitHub creds!';
         $html .= '</p>';
   		$html .= '</div><!-- /.updated -->';
+	    echo $html;
     }
-
-    echo $html;
   }
   
   static function uninstall() {
-    	if( false == delete_option( 'wp-gitdown' ) ) {
+    if( false == delete_option( 'wp-gitdown' ) ) {
 
-		$html = '<div class="error">';
-			$html .= '<p>';
-			// @todo write better message
-				$html .= 'Try deactivating the plugin again :(';
-			$html .= '</p>';
-		$html .= '</div><!-- /.updated -->';
-
-		echo $html;
+  		$html = '<div class="error">';
+  			$html .= '<p>';
+  			// @todo write better message
+  				$html .= 'Try deactivating the plugin again :(';
+  			$html .= '</p>';
+  		$html .= '</div><!-- /.updated -->';
+  
+  		echo $html;
+    }
   }
 
   /**
