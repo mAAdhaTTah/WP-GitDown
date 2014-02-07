@@ -291,7 +291,7 @@ class WordPress_Gitdown {
   public function gitcreds_section() {
     print('Insert help text.<br />');
     $git = $this->get_git_obj();
-    $git->clean();
+    $git->clean(false, true);
     echo $git->status(true);
   }
 
