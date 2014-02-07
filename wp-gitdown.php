@@ -151,8 +151,8 @@ class WordPress_Gitdown {
    * @return void
    */
   static function display_message() {
-    if( self::$version != get_option( 'wp-gitdown' ) ) {
-      add_option( 'wp-gitdown', self::$version );
+    if( self::$version != get_option( 'gitdown_version' ) ) {
+      add_option( 'gitdown_version', self::$version );
       $html = '<div class="updated">';
   			$html .= '<p>';
   			  // @todo Write better message
@@ -171,7 +171,7 @@ class WordPress_Gitdown {
    * @return void
    */
   static function uninstall() {
-    if( false == delete_option( 'wp-gitdown' ) ) {
+    if( false == delete_option( 'gitdown_version' ) ) {
 
   		$html = '<div class="error">';
   			$html .= '<p>';
