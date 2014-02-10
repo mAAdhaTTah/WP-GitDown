@@ -95,7 +95,7 @@ class WordPress_Gitdown {
   static function check_dependent_plugin() {
     include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
     if ( !is_plugin_active( self::$required . '/' . self::$required . '.php' ) ) {
-      // If WP-Markdown isn't active
+      // if WP-Markdown isn't active
       // deactivate the plugin
       deactivate_plugins( __FILE__);
       // and provide an error
@@ -127,12 +127,12 @@ class WordPress_Gitdown {
    **/
   static function initiate_repo() {
     $repo_path = self::get_repo_path();
-    // We're going to assume if repo_path exists, we created it
+    // we're going to assume if repo_path exists, we created it
     if( !is_dir($repo_path) ) {
       // Check if we can write a directory for better error reporting
       $upload_dir_basedir = dirname($repo_path);
       if (!wp_is_writable($upload_dir_basedir)) {
-        // If the directory isn't writable
+        // if the directory isn't writable
         // deactivate the plugin
         deactivate_plugins( __FILE__ );
         // and provide an error
@@ -142,7 +142,7 @@ class WordPress_Gitdown {
         // Create the repo_dir
         $mkdir = wp_mkdir_p( $repo_path );
         if( $mkdir === false ) {
-          // If we fail to make the directory,
+          // if we fail to make the directory,
           // deactivate the plugin
           deactivate_plugins( __FILE__ );
           // and provide an error
@@ -196,7 +196,7 @@ class WordPress_Gitdown {
    * Add options page
    **/
   public function gitdown_page() {
-    // This page will be under "Settings"
+    // this page will be under "Settings"
     add_options_page(
       'WP Gitdown',
       'WP Gitdown Settings',
@@ -210,15 +210,15 @@ class WordPress_Gitdown {
    * Options page callback
    **/
   public function gitdown_settings_page() {
-    // Set class property
+    // set class property
     $this->options = get_option('gitdown_settings');
-    // Check to make sure our current creds match the repo's
+    // check to make sure our current creds match the repo's
     $this->update_remote_repo($this->options); ?>
     <div class="wrap">
       <h2>My Settings</h2>
       <form method="post" action="options.php">
         <?php
-          // This prints out all hidden setting fields
+          // this prints out all hidden setting fields
           settings_fields( 'gitdown_settings' );
           do_settings_sections( 'gitdown_settings_admin' );
           submit_button();
@@ -356,7 +356,7 @@ class WordPress_Gitdown {
    * @param array $repo
    **/
   public function update_remote_repo($repo) {
-    // Everything has to be set for this to work
+    // everything has to be set for this to work
     if ( !isset($repo['github_username'], $repo['github_password'], $repo['github_repo'] ) ) { return; }
     $git = self::get_git_obj();
     // @todo strip 'https://'
@@ -396,7 +396,7 @@ class WordPress_Gitdown {
         	// since 2.8 ajaxurl is always defined in the admin header and points to admin-ajax.php
         	$.post(ajaxurl, data, function(response) {
         	  // @todo write a better message
-        		alert('Got this from the server: ' + response);
+        		alert(response);
         	});
         });
       }
@@ -420,7 +420,7 @@ class WordPress_Gitdown {
                        );
     $all_posts = get_posts($query_args);
     foreach ( $all_posts as $post ) {
-  		// Convert HTML content to Markdown
+  		// convert HTML content to Markdown
   		$html_content = $post->post_content;
   		$markdown_content = wpmarkdown_html_to_markdown($html_content);
   		// get slug + ID
@@ -428,12 +428,12 @@ class WordPress_Gitdown {
   		$post_id = $post->ID;
   		// concatenate filename
   		$filename = $post_id . '-' . $slug . '.md';
-  		// Export that Markdown to a .md file in $repo_path
+  		// rxport that Markdown to a .md file in $repo_path
   		// @todo rewrite this file creation function with WP_Filesystem API
   		file_put_contents(WordPress_Gitdown::get_repo_path() . '/' . $filename, $markdown_content);
   		// Stage new file
   		$git->add($filename);
-  		// Commit
+  		// commit
   		// @todo need to react properly to git Exception where 'who you are' not set
   		if ($git->status() !== "# On branch master nothing to commit (working directory clean)") {
     		$message = 'Result of Export All Posts: exported ' . $post->post_title;
@@ -442,11 +442,17 @@ class WordPress_Gitdown {
   	}
     // Restore original Post Data
     wp_reset_postdata();
-    // @todo push to origin:master
-    // @todo check if gitcreds set properly for this to run
-    // @todo write a better message
-    die('Posts successfully exported!');
-
+    // check if gitcreds are set
+    $WordPress_Gitdown->options = get_option('gitdown_settings');
+    if ( !isset($WordPress_Gitdown->options['github_username'], $WordPress_Gitdown->options['github_password'], $WordPress_Gitdown->options['github_this->options'] ) ) {
+      // if they're aren't, then we're done, but we should let the user know
+      die('Posts successfully exported, but not pushed to GitHub. Please add your credentials and try again.');
+    } else {
+      // if they are, push to remote
+      $push_msg = $git->push();
+      // now we're done, but we'll let the user know what we've done
+      die('Posts successfully exported. Here\'s what git said about the push: ' . $push_msg);
+    }
   }
 }
 
