@@ -95,11 +95,11 @@ class WordPress_Gitdown {
   static function check_dependent_plugin() {
     include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
     if ( !is_plugin_active( self::$required . '/' . self::$required . '.php' ) ) {
-      // deactivate dependent plugin
+      // If WP-Markdown isn't active
+      // deactivate the plugin
       deactivate_plugins( __FILE__);
-      // throw new Exception and exit
-      // @todo: Write better exit message
-      exit ('<b>Requires WP-Markdown.</b>');
+      // and provide an error
+      exit ('This plugin requires <a href="http://wordpress.org/plugins/wp-markdown/" target="_blank">WP-Markdown</a>. Make sure it\'s installed and active.');
     }
   }
 
@@ -167,8 +167,7 @@ class WordPress_Gitdown {
       add_option( 'gitdown_version', self::$version );
       $html = '<div class="updated">';
   			$html .= '<p>';
-  			  // @todo Write better message
-  				$html .= 'Don\'t forget to add your GitHub creds!';
+  				$html .= 'Don\'t forget to add your GitHub credentials. You can find them <a href="options-general.php?page=wp-gitdown">here</a>.';
         $html .= '</p>';
   		$html .= '</div><!-- /.updated -->';
 	    echo $html;
@@ -186,8 +185,7 @@ class WordPress_Gitdown {
     if( false == delete_option( 'gitdown_version' ) ) {
   		$html = '<div class="error">';
   			$html .= '<p>';
-  			  // @todo write better message
-  				$html .= 'Try deactivating the plugin again :(';
+  				$html .= 'Try deactivating the plugin again.';
   			$html .= '</p>';
   		$html .= '</div><!-- /.updated -->';
   		echo $html;
@@ -244,7 +242,7 @@ class WordPress_Gitdown {
       'GitHub Credentials', // Title
       array( $this, 'gitcreds_section' ), // Callback
       'gitdown_settings_admin' // Page
-    );å
+    );
     add_settings_field(
       'github_username', // ID
       'GitHub Username', // Title
@@ -258,7 +256,7 @@ class WordPress_Gitdown {
       array( $this, 'github_password' ), // Callback
       'gitdown_settings_admin', // Page
       'gitdown_settings_gitcreds' // Section
-    );å
+    );
     add_settings_field(
       'github_repo', // ID
       'GitHub Repo Address', // Title
@@ -293,13 +291,10 @@ class WordPress_Gitdown {
 
   /**
    * Print the text on the settings page
-   * @todo Write section text
    **/
   public function gitcreds_section() {
-    print('Insert help text.<br />');
-    $git = $this->get_git_obj();
-    $git->clean(false, true);
-    echo $git->status(true);
+    echo '<p>Enter your GitHub username and password here.</p>';
+    echo '<p>Use the https (not SSH) version for the GitHub URL.</p>';
   }
 
   /**
@@ -348,8 +343,9 @@ class WordPress_Gitdown {
    * @return export all button
    **/
   public function export_all_button() {
-    // @todo write better text
-    echo '<p>What does dis button do? </p>';
+    echo 'If you\'ve loaded this plugin for the first time, you should probably export all your posts.<br />';
+    echo 'This button will export each post as a .md file and commit them individually.<br />';
+    echo 'Additionally, if your credentials are set, it will push all your changes to your GitHub repo.<p />';
     echo '<input type="button" id="export_all" name="export_all" class="button button-secondary" value="Export All Posts" onclick="export_all_posts()" />';
   }
 
