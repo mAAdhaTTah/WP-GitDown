@@ -9,7 +9,6 @@
 	Text Domain:
 	Domain Path:
 	@todo write better code documentation
-	@todo write check for git 1.7.5 minimum
  */
 
 class WordPress_Gitdown {
@@ -86,7 +85,8 @@ class WordPress_Gitdown {
    * @return void
    */
   static function install() {
-    self::check_dependentplugin();
+    self::check_dependent_plugin();
+    self::check_git_version();
     self::initiate_repo();
   }
 
@@ -96,7 +96,7 @@ class WordPress_Gitdown {
    * @access public
    * @return void
    */
-  static function check_dependentplugin() {
+  static function check_dependent_plugin() {
     include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
 
     if ( !is_plugin_active( self::$required . '/' . self::$required . '.php' ) ) {
@@ -107,6 +107,23 @@ class WordPress_Gitdown {
       // throw new Exception and exit
       // @todo: Write better exit message
       exit ('<b>Requires WP-Markdown.</b>');
+    }
+  }
+
+  /**
+   * check_git_version function.
+   *
+   * @access public
+   * @static
+   * @return void
+   */
+  static function check_git_version() {
+    $git = new GitRepo();
+    $git_version = $git->run('--version');
+    $git_version = substr($git_version, 11);
+    if ( version_compare( $git_version, '1.7.5', '>=' ) ) {
+      deactivate_plugins( __FILE__ );
+      exit('You need to run at least git version 1.7.5. You are currently running version ' . $git_version);
     }
   }
 
@@ -137,7 +154,8 @@ class WordPress_Gitdown {
           // and provide an error
           exit ('<b>Failed to create repo dir: </b>' . $repo_path);
         }
-    }
+      }
+
       // Initiate the repo
       $repo = Git::create($repo_path);
     }
