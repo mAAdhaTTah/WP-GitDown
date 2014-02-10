@@ -4,13 +4,12 @@
 	Plugin URI:
 	Description:
 	Author: James DiGioia
-	Version:
+	Version: 0.0.1
 	Author URI:
 	Text Domain:
 	Domain Path:
 	@todo write better code documentation
 	@todo write check for git 1.7.5 minimum
-	@todo write readme that says 
  */
 
 class WordPress_Gitdown {
@@ -23,7 +22,7 @@ class WordPress_Gitdown {
   /**
    * Version #
    **/
-  static $version = '1.0';
+  static $version = '0.0.1';
 
   /**
    * Holds the values to be used in the fields callbacks
@@ -70,12 +69,13 @@ class WordPress_Gitdown {
    */
   public function __construct() {
     register_activation_hook(__FILE__,array(__CLASS__, 'install' ));
-    add_action( 'admin_notices', array( __CLASS__, 'display_message' ) );
     register_activation_hook(__FILE__,array(__CLASS__, 'uninstall' ));
     require_once(dirname(__FILE__) . '/lib/Git.php');
+    add_action( 'admin_notices', array( __CLASS__, 'display_message' ) );
     add_action( 'admin_menu', array( $this, 'gitdown_page' ) );
     add_action( 'admin_init', array( $this, 'gitdown_page_init' ) );
-    add_action( 'update_option_gitdown_settings', array( $this, 'export_all' ));
+    add_action( 'admin_footer', array( __CLASS__, 'export_all_ajax' ) );
+    add_action( 'wp_ajax_export_all_ajax', array(__CLASS__, 'export_all' ) );
   }
 
   /**
@@ -212,8 +212,8 @@ class WordPress_Gitdown {
           // This prints out all hidden setting fields
           settings_fields( 'gitdown_settings' );
           do_settings_sections( 'gitdown_settings_admin' );
-          $this->export_all_button();
           submit_button();
+          $this->export_all_button();
         ?>
       </form>
     </div>
@@ -335,6 +335,18 @@ class WordPress_Gitdown {
   }
 
   /**
+   * export_all_button function.
+   *
+   * @access public
+   * @return void
+   */
+  public function export_all_button() {
+    // @todo write better text
+    echo '<p>What does dis button do? </p>';
+    echo '<input type="button" id="export_all" name="export_all" class="button button-secondary" value="Export All Posts" onclick="export_all_posts()" />';
+  }
+
+  /**
    * update_remote_repo function.
    *
    * @access public
@@ -342,8 +354,7 @@ class WordPress_Gitdown {
    * @return void
    */
   public function update_remote_repo($repo) {
-    if ($repo == null) { return; }
-    // it's possible this function will receive null
+    // Everything has to be set for this to work
     if ( !isset($repo['github_username'], $repo['github_password'], $repo['github_repo'] ) ) { return; }
     $git = self::get_git_obj();
 
@@ -370,15 +381,28 @@ class WordPress_Gitdown {
   }
 
   /**
-   * export_all_button function.
+   * export_all_ajax function.
    *
    * @access public
+   * @static
    * @return void
    */
-  public function export_all_button() {
-    // @todo make only this fire when clicked, instead of firing when DB updated
-    // may need to unhook the action
-    echo '<input type="submit" id="export_all" name="export_all" class="button button-secondary" value="Export All Posts" />';
+  static function export_all_ajax() { ?>
+    <script type="text/javascript" >
+      function export_all_posts() {
+        jQuery(document).ready(function($) {
+        	var data = {
+        		action: 'export_all_ajax'
+        	};
+
+        	// since 2.8 ajaxurl is always defined in the admin header and points to admin-ajax.php
+        	$.post(ajaxurl, data, function(response) {
+        	  // @todo write a better message
+        		alert('Got this from the server: ' + response);
+        	});
+        });
+      }
+    </script><?php
   }
 
   /**
@@ -388,50 +412,52 @@ class WordPress_Gitdown {
    * @return void
    */
   public function export_all() {
-    if (isset($_POST['export_all'])) {
-      // initialize the git object
-      $git = self::get_git_obj();
-      $git->clean();
+    // initialize the git object
+    $git = WordPress_Gitdown::get_git_obj();
+    $git->clean(false, true);
 
-      // get all posts
-      $query_args = array( 'post_type' => 'post',
-                           'orderby'   => 'post_date'
-                         );
-      $all_posts = get_posts($query_args);
+    // get all posts
+    $query_args = array( 'post_type' => 'post',
+                         'orderby'   => 'post_date'
+                       );
+    $all_posts = get_posts($query_args);
 
-      foreach ( $all_posts as $post ) {
+    foreach ( $all_posts as $post ) {
 
-    		// Convert HTML content to Markdown
-    		$html_content = $post->post_content;
-    		$markdown_content = wpmarkdown_html_to_markdown($html_content);
+  		// Convert HTML content to Markdown
+  		$html_content = $post->post_content;
+  		$markdown_content = wpmarkdown_html_to_markdown($html_content);
 
-    		// get slug + ID
-    		$slug = $post->post_name;
-    		$post_id = $post->ID;
+  		// get slug + ID
+  		$slug = $post->post_name;
+  		$post_id = $post->ID;
 
-    		// concatenate filename
-    		$filename = $post_id . '-' . $slug . '.md';
+  		// concatenate filename
+  		$filename = $post_id . '-' . $slug . '.md';
 
-    		// Export that Markdown to a .md file in $repo_path
-    		// @todo rewrite this file creation function with WP_Filesystem API
-    		file_put_contents(self::get_repo_path() . '/' . $filename, $markdown_content);
+  		// Export that Markdown to a .md file in $repo_path
+  		// @todo rewrite this file creation function with WP_Filesystem API
+  		file_put_contents(WordPress_Gitdown::get_repo_path() . '/' . $filename, $markdown_content);
 
-    		// Stage new file
-    		$git->add($filename);
+  		// Stage new file
+  		$git->add($filename);
 
-    		// Commit
-    		// @todo need to react properly to git Exception where 'who you are' not set
-    		if ($git->status() !== "# On branch master nothing to commit (working directory clean)") {
-      		$message = 'Result of Export All Posts: exported ' . $post->post_title;
-      		$git->commit($message);
-    		}
-    	}
-      // Restore original Post Data
-      wp_reset_postdata();
+  		// Commit
+  		// @todo need to react properly to git Exception where 'who you are' not set
+  		if ($git->status() !== "# On branch master nothing to commit (working directory clean)") {
+    		$message = 'Result of Export All Posts: exported ' . $post->post_title;
+    		$git->commit($message);
+  		}
+  	}
+    // Restore original Post Data
+    wp_reset_postdata();
 
-      // push to origin:master
-      // need to check if gitcreds set properly for this to run
-    }
+    // push to origin:master
+    // need to check if gitcreds set properly for this to run
+
+    // @todo write a better message
+    die('Posts successfully exported!');
+
   }
 }
 
