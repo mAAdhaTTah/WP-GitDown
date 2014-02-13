@@ -73,6 +73,14 @@ class WordPress_Gitdown {
     add_action( 'admin_init', array( $this, 'gitdown_page_init' ) );
     add_action( 'admin_footer', array( __CLASS__, 'export_all_ajax' ) );
     add_action( 'wp_ajax_export_all_ajax', array(__CLASS__, 'export_all' ) );
+    add_action('activated_plugin',array( $this, 'save_error' ) );
+  }
+
+  /**
+   * Source: http://thehungrycoder.com/wordpress/how-i-have-solved-the-the-plugin-generated-xxxx-characters-of-unexpected-output-during-activation-problem.html
+   **/
+  public function save_error(){
+    update_option('plugin_error',  ob_get_contents());
   }
 
   /**
@@ -155,7 +163,7 @@ class WordPress_Gitdown {
   }
 
   /**
-   * Displays a message to the user
+   * Displays a message to the user on plugin activation
    * Asks to update their remote repo credentials
    *
    * @access public
@@ -170,12 +178,13 @@ class WordPress_Gitdown {
   				$html .= 'Don\'t forget to add your GitHub credentials. You can find them <a href="options-general.php?page=wp-gitdown">here</a>.';
         $html .= '</p>';
   		$html .= '</div><!-- /.updated -->';
+  		$html .= get_option('plugin_error');
 	    echo $html;
     }
   }
 
   /**
-   * Runs when plugin is deactivated
+   * Clears placeholder setting on plugin deactivation
    *
    * @access public
    * @static
@@ -420,26 +429,8 @@ class WordPress_Gitdown {
                        );
     $all_posts = get_posts($query_args);
     foreach ( $all_posts as $post ) {
-  		// convert HTML content to Markdown
-  		$html_content = $post->post_content;
-  		$markdown_content = wpmarkdown_html_to_markdown($html_content);
-  		// get slug + ID
-  		$slug = $post->post_name;
-  		$post_id = $post->ID;
-  		// concatenate filename
-  		$filename = $post_id . '-' . $slug . '.md';
-  		// rxport that Markdown to a .md file in $repo_path
-  		// @todo rewrite this file creation function with WP_Filesystem API
-  		file_put_contents(WordPress_Gitdown::get_repo_path() . '/' . $filename, $markdown_content);
-  		// Stage new file
-  		$git->add($filename);
-  		// commit
-  		// @todo need to react properly to git Exception where 'who you are' not set
-  		if ($git->status() !== "# On branch master nothing to commit (working directory clean)") {
-    		$message = 'Result of Export All Posts: exported ' . $post->post_title;
-    		$git->commit($message);
-  		}
-  	}
+      WordPress_Gitdown::export_post($post);
+    }
     // Restore original Post Data
     wp_reset_postdata();
     // check if gitcreds are set
@@ -453,6 +444,38 @@ class WordPress_Gitdown {
       // now we're done, but we'll let the user know what we've done
       die('Posts successfully exported. Here\'s what git said about the push: ' . $push_msg);
     }
+  }
+
+  /**
+   * function to export post object to .md file
+   * commits each post individually
+   *
+   * @access public
+   * @param object $post_obj
+   * @return void
+   **/
+  public function export_post($post_obj) {
+    // initialize the git object
+    $git = WordPress_Gitdown::get_git_obj();
+		// convert HTML content to Markdown
+		$html_content = $post_obj->post_content;
+		$markdown_content = wpmarkdown_html_to_markdown($html_content);
+		// get slug + ID
+		$slug = $post_obj->post_name;
+		$post_id = $post_obj->ID;
+		// concatenate filename
+		$filename = $post_id . '-' . $slug . '.md';
+		// rxport that Markdown to a .md file in $repo_path
+		// @todo rewrite this file creation function with WP_Filesystem API
+		file_put_contents(WordPress_Gitdown::get_repo_path() . '/' . $filename, $markdown_content);
+		// Stage new file
+		$git->add($filename);
+		// commit
+		// @todo need to react properly to git Exception where 'who you are' not set
+		if ($git->status() !== "# On branch master nothing to commit (working directory clean)") {
+  		$message = 'Result of Export All Posts: exported ' . $post_obj->post_title;
+  		$git->commit($message);
+		}
   }
 }
 
