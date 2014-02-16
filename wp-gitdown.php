@@ -376,7 +376,7 @@ class WordPress_Gitdown {
     echo 'If you\'ve loaded this plugin for the first time, you should probably export all your posts.<br />';
     echo 'This button will export each post as a .md file and commit them individually.<br />';
     echo 'Additionally, if your credentials are set, it will push all your changes to your GitHub repo.<p />';
-    echo '<input type="button" id="export_all" name="export_all" class="button button-secondary" value="Export All Posts" onclick="export_all_posts()" />';
+    echo '<input type="button" id="export_all" name="export_all" class="button button-secondary" value="Export All Posts" onclick="export_all_callback()" />';
   }
 
   /**
@@ -389,7 +389,7 @@ class WordPress_Gitdown {
    **/
   static function export_all_ajax() { ?>
     <script type="text/javascript" >
-      function export_all_posts() {
+      function export_all_callback() {
         jQuery(document).ready(function($) {
         	var data = {
         		action: 'export_all_ajax'
