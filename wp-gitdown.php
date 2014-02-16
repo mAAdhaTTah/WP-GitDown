@@ -463,7 +463,7 @@ class WordPress_Gitdown {
 		$git->add($filename);
 		// commit
 		// @todo need to react properly to git Exception where 'who you are' not set
-		if ($git->status() !== "# On branch master nothing to commit (working directory clean)") {
+		if ( str_replace(array("\r\n", "\r", "\n"), ' ', $git->status() ) !== '# On branch master nothing to commit (working directory clean) ') {
   		$message = 'Result of Export All Posts: exported ' . $post_obj->post_title;
   		$git->commit($message);
 		}
