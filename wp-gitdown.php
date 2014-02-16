@@ -64,19 +64,20 @@ class WordPress_Gitdown {
    * @param array $repo
    **/
   static function get_repo_url() {
+    $options = get_option('gitdown_settings');
     // everything has to be set for this to work
-    if ( !isset($this->options['github_username'], $this->options['github_password'], $this->options['github_repo'] ) ) {
+    if ( !isset($options['github_username'], $options['github_password'], $options['github_repo'] ) ) {
       // return null if url will be incomplete
       // we'll use this to error check elsewhere
       return null;
     }
     $git = self::get_git_obj();
     // check https:// start
-    if (0 == stripos($this->options['github_repo'], 'https://')) {
+    if (0 == stripos($options['github_repo'], 'https://')) {
       // remove https://
-      $this->options['github_repo'] = preg_replace('#^https?://#', '', $this->options['github_repo']);
+      $options['github_repo'] = preg_replace('#^https?://#', '', $options['github_repo']);
     }
-    $repo_url = 'https://' . $this->options['github_username'] . ':' . $this->options['github_password'] . '@' . $this->options['github_repo'];
+    $repo_url = 'https://' . $options['github_username'] . ':' . $options['github_password'] . '@' . $options['github_repo'];
     return $repo_url;
   }
 
@@ -96,6 +97,8 @@ class WordPress_Gitdown {
     add_action( 'admin_init', array( $this, 'gitdown_page_init' ) );
     add_action( 'admin_footer', array( __CLASS__, 'export_all_ajax' ) );
     add_action( 'wp_ajax_export_all_ajax', array( $this, 'export_all' ) );
+    add_action( 'admin_footer', array( __CLASS__, 'git_push_ajax' ) );
+    add_action( 'wp_ajax_git_push_ajax', array( $this, 'git_push' ) );
     add_action( 'activated_plugin', array( $this, 'save_error' ) );
   }
 
@@ -253,6 +256,7 @@ class WordPress_Gitdown {
           do_settings_sections( 'gitdown_settings_admin' );
           submit_button();
           $this->export_all_button();
+          $this->git_push_button();
         ?>
       </form>
     </div><?php
@@ -425,16 +429,7 @@ class WordPress_Gitdown {
     }
     // Restore original Post Data
     wp_reset_postdata();
-    // check if gitcreds are set
-    $this->options = get_option('gitdown_settings');
-    if ( !isset($this->options['github_username'], $this->options['github_password'], $this->options['github_this->options'] ) ) {
-      // if they're aren't, then we're done, but we should let the user know
-      die('Posts successfully exported, but not pushed to GitHub. Please add your credentials and try again.');
-    } else {
-      // if they are, push to remote
-      // now we're done, but we'll let the user know what we've done
-      die('Posts successfully exported. Here\'s what git said about the push: ' . $push_msg);
-    }
+    die('Posts successfully exported.');
   }
 
   /**
@@ -467,6 +462,66 @@ class WordPress_Gitdown {
   		$message = 'Result of Export All Posts: exported ' . $post_obj->post_title;
   		$git->commit($message);
 		}
+  }
+  
+  /**
+   * Displays the export all button
+   *
+   * @access public
+   * @return export all button
+   **/
+  public function git_push_button() {
+    echo '<input type="button" id="git_push" name="git_push" class="button button-secondary" value="Run Git Push" onclick="git_push_callback()" />';
+  }
+
+  /**
+   * function called by Export All Posts button
+   * embedded in admin footer
+   *
+   * @access public
+   * @static
+   * @return Javascript function
+   **/
+  static function git_push_ajax() { ?>
+    <script type="text/javascript" >
+      function git_push_callback() {
+        jQuery(document).ready(function($) {
+        	var data = {
+        		action: 'git_push_ajax'
+        	};
+        	// since 2.8 ajaxurl is always defined in the admin header and points to admin-ajax.php
+        	$.post(ajaxurl, data, function(response) {
+        	  // @todo write a better message
+        		alert(response);
+        	});
+        });
+      }
+    </script><?php
+  }
+
+  /**
+   * function to export every post to .md file
+   * commits each file to repo individually
+   *
+   * @access public
+   * @return pop-up message (if successful)
+   **/
+  public function git_push() {
+    // initialize the git object
+    $git = self::get_git_obj();
+    $git->clean(false, true);
+    // check if gitcreds are set
+    $this->options = get_option('gitdown_settings');
+    if ( !isset($this->options['github_username'], $this->options['github_password'], $this->options['github_repo'] ) ) {
+      // if they're aren't, give up and let user know
+      die('Set your credentials');
+    } else {
+      // get git repo url with creds
+      $git_repo = self::get_repo_url();
+      // run git push
+      $msg = $git->push($git_repo, 'master');
+      die('Git push successful. ' . $msg);
+    }
   }
 }
 
