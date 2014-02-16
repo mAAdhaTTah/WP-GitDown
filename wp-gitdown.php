@@ -56,6 +56,29 @@ class WordPress_Gitdown {
    $git = Git::open($repo_path);
    return $git;
   }
+  
+  /**
+   * Get git url  
+   *
+   * @access public
+   * @param array $repo
+   **/
+  static function get_repo_url() {
+    // everything has to be set for this to work
+    if ( !isset($this->options['github_username'], $this->options['github_password'], $this->options['github_repo'] ) ) {
+      // return null if url will be incomplete
+      // we'll use this to error check elsewhere
+      return null;
+    }
+    $git = self::get_git_obj();
+    // check https:// start
+    if (0 == stripos($this->options['github_repo'], 'https://')) {
+      // remove https://
+      $this->options['github_repo'] = preg_replace('#^https?://#', '', $this->options['github_repo']);
+    }
+    $repo_url = 'https://' . $this->options['github_username'] . ':' . $this->options['github_password'] . '@' . $this->options['github_repo'];
+    return $repo_url;
+  }
 
   /**
    * __construct function
@@ -220,9 +243,7 @@ class WordPress_Gitdown {
    **/
   public function gitdown_settings_page() {
     // set class property
-    $this->options = get_option('gitdown_settings');
-    // check to make sure our current creds match the repo's
-    $this->update_remote_repo($this->options); ?>
+    $this->options = get_option('gitdown_settings'); ?>
     <div class="wrap">
       <h2>My Settings</h2>
       <form method="post" action="options.php">
@@ -359,35 +380,6 @@ class WordPress_Gitdown {
   }
 
   /**
-   * Change the remote repo url saved in the repo itself
-   *
-   * @access public
-   * @param array $repo
-   **/
-  public function update_remote_repo($repo) {
-    // everything has to be set for this to work
-    if ( !isset($repo['github_username'], $repo['github_password'], $repo['github_repo'] ) ) { return; }
-    $git = self::get_git_obj();
-    // @todo strip 'https://'
-    // check if anything changed
-    // note this command req git 1.7.5
-    if ( $repo['github_repo'] !== $git->run( "ls-remote --get-url origin" ) ) {
-      // check if a remote is defined
-      if ( $git->run( "ls-remote --get-url origin" ) !== 'origin' ) {
-        // delete current remote repo
-        $git->run("remote rm origin");
-      }
-      $repo_url = 'https://' . $repo['github_username'] . ':' . $repo['github_password'] . '@' . $repo['github_repo'];
-      // add new remote repo
-      $git->run("remote add origin " . $repo_url);
-      // publish current repo use git push -u origin master so we can just do
-      // git push/pull; requires git 1.7.0
-      // @todo check for errors
-      $git->run("push -u origin master");
-    }
-  }
-
-  /**
    * function called by Export All Posts button
    * embedded in admin footer
    *
@@ -440,7 +432,6 @@ class WordPress_Gitdown {
       die('Posts successfully exported, but not pushed to GitHub. Please add your credentials and try again.');
     } else {
       // if they are, push to remote
-      $push_msg = $git->push();
       // now we're done, but we'll let the user know what we've done
       die('Posts successfully exported. Here\'s what git said about the push: ' . $push_msg);
     }
