@@ -89,7 +89,7 @@ class WordPress_Gitdown {
    **/
   public function __construct() {
     register_activation_hook(__FILE__,array(__CLASS__, 'install' ));
-    register_activation_hook(__FILE__,array(__CLASS__, 'uninstall' ));
+    register_deactivation_hook(__FILE__,array(__CLASS__, 'uninstall' ));
     require_once(dirname(__FILE__) . '/lib/Git.php');
     add_action( 'admin_notices', array( __CLASS__, 'display_message' ) );
     add_action( 'admin_menu', array( $this, 'gitdown_page' ) );
