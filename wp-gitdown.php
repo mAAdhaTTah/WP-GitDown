@@ -88,15 +88,15 @@ class WordPress_Gitdown {
    * @access public
    **/
   public function __construct() {
-    register_activation_hook(__FILE__,array(__CLASS__, 'install' ));
-    register_deactivation_hook(__FILE__,array(__CLASS__, 'uninstall' ));
-    require_once(dirname(__FILE__) . '/lib/Git.php');
+    register_activation_hook( __FILE__,array( __CLASS__, 'install' ) );
+    register_deactivation_hook( __FILE__,array( __CLASS__, 'uninstall' ) );
+    require_once( dirname( __FILE__ ) . '/lib/Git.php' );
     add_action( 'admin_notices', array( __CLASS__, 'display_message' ) );
     add_action( 'admin_menu', array( $this, 'gitdown_page' ) );
     add_action( 'admin_init', array( $this, 'gitdown_page_init' ) );
     add_action( 'admin_footer', array( __CLASS__, 'export_all_ajax' ) );
-    add_action( 'wp_ajax_export_all_ajax', array(__CLASS__, 'export_all' ) );
-    add_action('activated_plugin',array( $this, 'save_error' ) );
+    add_action( 'wp_ajax_export_all_ajax', array( $this, 'export_all' ) );
+    add_action( 'activated_plugin', array( $this, 'save_error' ) );
   }
 
   /**
@@ -413,7 +413,7 @@ class WordPress_Gitdown {
    **/
   public function export_all() {
     // initialize the git object
-    $git = WordPress_Gitdown::get_git_obj();
+    $git = self::get_git_obj();
     $git->clean(false, true);
     // get all posts
     $query_args = array( 'post_type' => 'post',
@@ -421,13 +421,13 @@ class WordPress_Gitdown {
                        );
     $all_posts = get_posts($query_args);
     foreach ( $all_posts as $post ) {
-      WordPress_Gitdown::export_post($post);
+      self::export_post($post);
     }
     // Restore original Post Data
     wp_reset_postdata();
     // check if gitcreds are set
-    $WordPress_Gitdown->options = get_option('gitdown_settings');
-    if ( !isset($WordPress_Gitdown->options['github_username'], $WordPress_Gitdown->options['github_password'], $WordPress_Gitdown->options['github_this->options'] ) ) {
+    $this->options = get_option('gitdown_settings');
+    if ( !isset($this->options['github_username'], $this->options['github_password'], $this->options['github_this->options'] ) ) {
       // if they're aren't, then we're done, but we should let the user know
       die('Posts successfully exported, but not pushed to GitHub. Please add your credentials and try again.');
     } else {
@@ -447,7 +447,7 @@ class WordPress_Gitdown {
    **/
   public function export_post($post_obj) {
     // initialize the git object
-    $git = WordPress_Gitdown::get_git_obj();
+    $git = self::get_git_obj();
 		// convert HTML content to Markdown
 		$html_content = $post_obj->post_content;
 		$markdown_content = wpmarkdown_html_to_markdown($html_content);
@@ -458,7 +458,7 @@ class WordPress_Gitdown {
 		$filename = $post_id . '-' . $slug . '.md';
 		// rxport that Markdown to a .md file in $repo_path
 		// @todo rewrite this file creation function with WP_Filesystem API
-		file_put_contents(WordPress_Gitdown::get_repo_path() . '/' . $filename, $markdown_content);
+		file_put_contents(self::get_repo_path() . '/' . $filename, $markdown_content);
 		// Stage new file
 		$git->add($filename);
 		// commit
