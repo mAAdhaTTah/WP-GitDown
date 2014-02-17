@@ -420,12 +420,14 @@ class WordPress_Gitdown {
     $git = self::get_git_obj();
     $git->clean(false, true);
     // get all posts
+    // @todo fix object to only get publish posts
     $query_args = array( 'post_type' => 'post',
                          'orderby'   => 'post_date'
                        );
     $all_posts = get_posts($query_args);
     foreach ( $all_posts as $post ) {
-      self::export_post($post);
+      $message = 'Result of Export All Posts: exported ' . $post->post_title; // @todo add info to commit message including username
+      self::export_post($post, $message);
     }
     // Restore original Post Data
     wp_reset_postdata();
