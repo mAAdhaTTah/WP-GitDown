@@ -427,8 +427,10 @@ class WordPress_Gitdown {
                        );
     $all_posts = get_posts($query_args);
     foreach ( $all_posts as $post ) {
-      $msg = 'Result of Export All Posts: exported ' . $post->post_title; // @todo add info to commit msg including username
-      self::export_post($post, $msg);
+      if (get_post_status($post->ID) == 'publish') {
+        $msg = 'Result of Export All Posts: exported ' . $post->post_title; // @todo add info to commit msg including username
+        self::export_post($post, $msg);
+      }
     }
     // Restore original Post Data
     wp_reset_postdata();
@@ -482,7 +484,7 @@ class WordPress_Gitdown {
 		// delete .md file 
 		// @todo rewrite this file deletion function with WP_Filesystem API
 		$path = self::get_repo_path() . '/' . $filename;
-		$path = realpath($path);
+		$path = realpath($path); // @todo need to add real error checking here
 		if (!is_writeable($path)) {
   		exit($path . ' is not writable.'); 
 		}
