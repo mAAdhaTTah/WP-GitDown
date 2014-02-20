@@ -31,7 +31,7 @@ class WordPress_Gitdown {
   static $repo_dir = 'gitdown';
 
   /**
-   * Provides the directory we're saving the git repo
+   * provides the directory we're saving the git repo
    *
    * @access public
    * @static
@@ -92,14 +92,15 @@ class WordPress_Gitdown {
     register_activation_hook( __FILE__,array( __CLASS__, 'install' ) );
     register_deactivation_hook( __FILE__,array( __CLASS__, 'uninstall' ) );
     require_once( dirname( __FILE__ ) . '/lib/Git.php' );
-    add_action( 'admin_notices', array( __CLASS__, 'display_message' ) );
+    add_action( 'admin_notices', array( __CLASS__, 'display_msg' ) );
     add_action( 'admin_menu', array( $this, 'gitdown_page' ) );
     add_action( 'admin_init', array( $this, 'gitdown_page_init' ) );
     add_action( 'admin_footer', array( __CLASS__, 'export_all_ajax' ) );
     add_action( 'wp_ajax_export_all_ajax', array( $this, 'export_all' ) );
     add_action( 'admin_footer', array( __CLASS__, 'git_push_ajax' ) );
-    add_action( 'wp_ajax_git_push_ajax', array( $this, 'git_push' ) );
+    add_action( 'wp_ajax_git_push_ajax', array( $this, 'git_push_callback' ) );
     add_action( 'activated_plugin', array( $this, 'save_error' ) );
+    add_action( 'transition_post_status', array($this, 'post_update_export' ), 10, 3 );
   }
 
   /**
@@ -189,14 +190,14 @@ class WordPress_Gitdown {
   }
 
   /**
-   * Displays a message to the user on plugin activation
+   * Displays a msg to the user on plugin activation
    * Asks to update their remote repo credentials
    *
    * @access public
    * @static
-   * @return html message
+   * @return html msg
    **/
-  static function display_message() {
+  static function display_msg() {
     if( self::$version != get_option( 'gitdown_version' ) ) {
       add_option( 'gitdown_version', self::$version );
       $html = '<div class="updated">';
@@ -214,7 +215,7 @@ class WordPress_Gitdown {
    *
    * @access public
    * @static
-   * @return html message (on failure)
+   * @return html msg (on failure)
    **/
   static function uninstall() {
     if( false == delete_option( 'gitdown_version' ) ) {
@@ -400,7 +401,7 @@ class WordPress_Gitdown {
         	};
         	// since 2.8 ajaxurl is always defined in the admin header and points to admin-ajax.php
         	$.post(ajaxurl, data, function(response) {
-        	  // @todo write a better message
+        	  // @todo write a better msg
         		alert(response);
         	});
         });
@@ -413,7 +414,7 @@ class WordPress_Gitdown {
    * commits each file to repo individually
    *
    * @access public
-   * @return pop-up message (if successful)
+   * @return pop-up msg (if successful)
    **/
   public function export_all() {
     // initialize the git object
@@ -426,8 +427,8 @@ class WordPress_Gitdown {
                        );
     $all_posts = get_posts($query_args);
     foreach ( $all_posts as $post ) {
-      $message = 'Result of Export All Posts: exported ' . $post->post_title; // @todo add info to commit message including username
-      self::export_post($post, $message);
+      $msg = 'Result of Export All Posts: exported ' . $post->post_title; // @todo add info to commit msg including username
+      self::export_post($post, $msg);
     }
     // Restore original Post Data
     wp_reset_postdata();
@@ -442,18 +443,15 @@ class WordPress_Gitdown {
    * @param object $post_obj
    * @return void
    **/
-  public function export_post($post_obj) {
+  public function export_post($post_obj, $commit_msg) {
     // initialize the git object
     $git = self::get_git_obj();
 		// convert HTML content to Markdown
 		$html_content = $post_obj->post_content;
 		$markdown_content = wpmarkdown_html_to_markdown($html_content);
-		// get slug + ID
-		$slug = $post_obj->post_name;
-		$post_id = $post_obj->ID;
-		// concatenate filename
-		$filename = $post_id . '-' . $slug . '.md';
-		// rxport that Markdown to a .md file in $repo_path
+    // get the post's filename
+		$filename = $this->get_filename($post_obj);
+		// export that Markdown to a .md file in $repo_path
 		// @todo rewrite this file creation function with WP_Filesystem API
 		file_put_contents(self::get_repo_path() . '/' . $filename, $markdown_content);
 		// Stage new file
@@ -461,9 +459,57 @@ class WordPress_Gitdown {
 		// commit
 		// @todo need to react properly to git Exception where 'who you are' not set
 		if ( str_replace(array("\r\n", "\r", "\n"), ' ', $git->status() ) !== '# On branch master nothing to commit (working directory clean) ') {
-  		$message = 'Result of Export All Posts: exported ' . $post_obj->post_title;
-  		$git->commit($message);
+  		$git->commit($commit_msg);
 		}
+  }
+  
+  /**
+   * function to export post object to .md file
+   * commits each post individually
+   *
+   * @access public
+   * @param object $post_obj
+   * @return void
+   **/
+  public function remove_post($post_obj, $commit_msg) {
+    // initialize the git object
+    $git = self::get_git_obj();
+		// convert HTML content to Markdown
+		$html_content = $post_obj->post_content;
+		$markdown_content = wpmarkdown_html_to_markdown($html_content);
+    // get the post's filename
+		$filename = $this->get_filename($post_obj);
+		// delete .md file 
+		// @todo rewrite this file deletion function with WP_Filesystem API
+		$path = self::get_repo_path() . '/' . $filename;
+		$path = realpath($path);
+		if (!is_writeable($path)) {
+  		exit($path . ' is not writable.'); 
+		}
+		unlink($path);
+		// Stage new file
+		$git->rm($filename);
+		// commit
+		// @todo need to react properly to git Exception where 'who you are' not set
+		if ( str_replace(array("\r\n", "\r", "\n"), ' ', $git->status() ) !== '# On branch master nothing to commit (working directory clean) ') {
+  		$git->commit($commit_msg);
+		}
+  }
+  
+  /**
+   * provides the filename associated with the post object
+   *
+   * @access public
+   * @access public
+   * @return filename for the post
+   **/
+  public function get_filename($post_obj) {
+    // get slug + ID
+		$slug = $post_obj->post_name;
+		$post_id = $post_obj->ID;
+		// concatenate filename
+		$filename = $post_id . '-' . $slug . '.md';
+		return $filename;
   }
   
   /**
@@ -493,20 +539,31 @@ class WordPress_Gitdown {
         	};
         	// since 2.8 ajaxurl is always defined in the admin header and points to admin-ajax.php
         	$.post(ajaxurl, data, function(response) {
-        	  // @todo write a better message
+        	  // @todo write a better msg
         		alert(response);
         	});
         });
       }
     </script><?php
   }
-
+  
   /**
-   * function to export every post to .md file
-   * commits each file to repo individually
+   * push git repo to remote for ajax
+   * needs to end with die() b/c javascript
    *
    * @access public
-   * @return pop-up message (if successful)
+   * @return pop-up msg (if successful)
+   **/
+  public function git_push_callback() {
+    $msg = $this->git_push();
+    die($msg);
+  }
+
+  /**
+   * push git repo to remote
+   *
+   * @access static
+   * @return message
    **/
   public function git_push() {
     // initialize the git object
@@ -516,13 +573,36 @@ class WordPress_Gitdown {
     $this->options = get_option('gitdown_settings');
     if ( !isset($this->options['github_username'], $this->options['github_password'], $this->options['github_repo'] ) ) {
       // if they're aren't, give up and let user know
-      die('Set your credentials');
+      return('Set your credentials');
     } else {
       // get git repo url with creds
       $git_repo = self::get_repo_url();
       // run git push
       $msg = $git->push($git_repo, 'master');
-      die('Git push successful. ' . $msg);
+      return('Git push successful. ' . $msg);
+    }
+  }
+  
+  /**
+   * exports post every time post is saved
+   *
+   * @access public
+   * @return pop-up msg (if successful)
+   **/
+  public function post_update_export($new_status, $old_status, $post) {
+    if ( $new_status == 'auto-draft') { return; }
+    if ($old_status == 'publish' && $new_status == 'publish') {
+      $msg = 'Post updated at ' . date( 'Y-m-d H:i:s', current_time( 'timestamp', 0 ) ); // @todo write actual msg
+      $this->export_post($post, $msg);
+      $this->git_push();
+    } elseif ( !wp_is_post_autosave( $post->ID ) && $new_status == 'publish' ) {
+      $msg = 'Post published at ' . date( 'Y-m-d H:i:s', current_time( 'timestamp', 0 ) ); // @todo write actual msg
+      $this->export_post($post, $msg);
+      $this->git_push();
+    } elseif ($old_status == 'publish' && $new_status != 'publish') {
+      $msg = 'Post unpublished at ' . date( 'Y-m-d H:i:s', current_time( 'timestamp', 0 ) ); // @todo write actual msg
+      $this->remove_post($post, $msg);
+      $this->git_push();
     }
   }
 }
