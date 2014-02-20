@@ -4,7 +4,7 @@
 	Plugin URI: http://www.jamesdigioia.com/projects/wp-gitdown
 	Description: Open-source your blog with GitHub integration
 	Author: James DiGioia
-	Version: 0.0.1
+	Version: 0.0.2
 	Author URI: http://www.jamesdigioia.com
  */
 
@@ -18,7 +18,7 @@ class WordPress_Gitdown {
   /**
    * Version #
    **/
-  static $version = '0.0.1';
+  static $version = '0.0.2';
 
   /**
    * Holds the values to be used in the fields callbacks

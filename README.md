@@ -26,6 +26,11 @@ If you have questions, please open an issue on GitHub or contact me on Twitter [
 
 ### Changelog
 
+0.0.2
+
+* New feature: posts now export and delete on post publish/unpublish
+* Misc bugfixes and code improvements
+
 0.0.1
 
 * Initial release 
